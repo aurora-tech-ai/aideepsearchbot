@@ -1,0 +1,994 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat - AI Search Bot</title>
+    
+    <!-- Socket.IO -->
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <!-- Marked.js for Markdown -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    
+    <!-- Prism.js for code highlighting -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+    
+    <style>
+        /* Scrollbar */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+        
+        /* Typing indicator */
+        @keyframes blink {
+            0%, 80%, 100% { opacity: 0; }
+            40% { opacity: 1; }
+        }
+        .typing-dot {
+            animation: blink 1.4s infinite;
+        }
+        .typing-dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+        .typing-dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+        
+        /* Markdown styles */
+        .markdown-content h1 { font-size: 1.5rem; font-weight: bold; margin: 1rem 0; }
+        .markdown-content h2 { font-size: 1.25rem; font-weight: bold; margin: 0.75rem 0; }
+        .markdown-content h3 { font-size: 1.1rem; font-weight: bold; margin: 0.5rem 0; }
+        .markdown-content p { margin-bottom: 0.5rem; }
+        .markdown-content ul, .markdown-content ol { margin-left: 1.5rem; margin-bottom: 0.5rem; }
+        .markdown-content ul { list-style-type: disc; }
+        .markdown-content ol { list-style-type: decimal; }
+        .markdown-content code { 
+            background-color: #f3f4f6; 
+            padding: 0.125rem 0.25rem; 
+            border-radius: 0.25rem; 
+            font-size: 0.875rem; 
+        }
+        .markdown-content pre { 
+            margin: 0.5rem 0; 
+            border-radius: 0.5rem; 
+            overflow-x: auto; 
+        }
+        .markdown-content pre code { 
+            background-color: transparent; 
+            padding: 0; 
+        }
+        .markdown-content blockquote {
+            border-left: 4px solid #e5e7eb;
+            padding-left: 1rem;
+            margin: 1rem 0;
+            color: #6b7280;
+        }
+        .markdown-content a {
+            color: #3b82f6;
+            text-decoration: underline;
+        }
+        .markdown-content a:hover {
+            color: #2563eb;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="flex h-screen">
+        <!-- Sidebar -->
+        <aside id="sidebar" class="w-72 bg-gray-900 text-white flex flex-col">
+            <div class="p-4 border-b border-gray-800">
+                <button onclick="createNewSession()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition">
+                    <i class="fas fa-plus mr-2"></i>Nova Conversa
+                </button>
+            </div>
+            
+            <div class="flex-1 overflow-y-auto custom-scrollbar">
+                <div id="sessionsList" class="p-2">
+                    <!-- Sessions will load here -->
+                </div>
+            </div>
+            
+            <div class="p-4 border-t border-gray-800">
+                <div class="flex items-center justify-between mb-2">
+                    <span id="currentUser" class="text-sm">Carregando...</span>
+                    <button id="adminBtn" onclick="window.location.href='/admin'" class="text-gray-400 hover:text-white hidden">
+                        <i class="fas fa-cog"></i>
+                    </button>
+                </div>
+                <button onclick="logout()" class="text-sm text-red-400 hover:text-red-300">
+                    <i class="fas fa-sign-out-alt mr-1"></i>Sair
+                </button>
+            </div>
+        </aside>
+        
+        <!-- Main Chat Area -->
+        <main class="flex-1 flex flex-col">
+            <!-- Header -->
+            <header class="bg-white shadow-sm px-6 py-4 flex items-center justify-between">
+                <h1 id="sessionTitle" class="text-xl font-semibold">Selecione ou crie uma conversa</h1>
+                <div id="headerActions" class="flex items-center gap-3 hidden">
+                    <div class="relative">
+                        <button onclick="toggleExportMenu()" class="text-gray-600 hover:text-gray-900" title="Exportar conversa">
+                            <i class="fas fa-download"></i>
+                        </button>
+                        <div id="exportMenu" class="hidden absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg">
+                            <button onclick="exportSession('markdown')" class="w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2">
+                                <i class="fas fa-file-alt"></i>
+                                <span>Exportar como Markdown</span>
+                            </button>
+                            <button onclick="exportSession('pdf')" class="w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2">
+                                <i class="fas fa-file-pdf"></i>
+                                <span>Exportar como PDF</span>
+                            </button>
+                        </div>
+                    </div>
+                    <button id="deleteBtn" onclick="deleteCurrentSession()" class="text-red-600 hover:text-red-700">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </header>
+            
+            <!-- Messages -->
+            <div id="messagesContainer" class="flex-1 overflow-y-auto custom-scrollbar p-6">
+                <div id="messages" class="max-w-4xl mx-auto">
+                    <div id="welcomeMessage" class="text-center text-gray-500 mt-20">
+                        <i class="fas fa-comments text-6xl mb-4 text-gray-300"></i>
+                        <p>Selecione uma conversa ou crie uma nova para começar</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Input -->
+            <div id="inputArea" class="border-t bg-white px-6 py-4 hidden">
+                <div class="max-w-4xl mx-auto">
+                    <form id="messageForm" class="flex gap-3">
+                        <input
+                            type="text"
+                            id="messageInput"
+                            placeholder="Digite sua mensagem..."
+                            class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                        <button
+                            type="submit"
+                            id="sendBtn"
+                            class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg disabled:opacity-50"
+                        >
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <script>
+        // Configurar marked.js
+        marked.setOptions({
+            highlight: function(code, lang) {
+                if (Prism.languages[lang]) {
+                    return Prism.highlight(code, Prism.languages[lang], lang);
+                }
+                return code;
+            },
+            breaks: true
+        });
+        
+        // Estado global
+        let socket = null;
+        let currentSessionId = null;
+        let currentUser = null;
+        let isGenerating = false;
+        let sessions = []; // Armazenar sessões localmente
+        let currentMessages = []; // Armazenar mensagens da sessão atual
+        
+        // Debug helper
+        function debug(message, data = null) {
+            console.log(`[DEBUG] ${message}`, data || '');
+        }
+        
+        // Inicialização
+        document.addEventListener('DOMContentLoaded', function() {
+            debug('Iniciando aplicação');
+            initSocket();
+            loadUser();
+            loadSessions();
+            
+            // Form submit
+            document.getElementById('messageForm').addEventListener('submit', function(e) {
+                e.preventDefault();
+                sendMessage();
+            });
+        });
+        
+        // Socket.IO
+        function initSocket() {
+            debug('Conectando socket...');
+            socket = io();
+            
+            socket.on('connect', function() {
+                debug('Socket conectado');
+            });
+            
+            socket.on('disconnect', function() {
+                debug('Socket desconectado');
+                // Reconectar automaticamente
+                setTimeout(() => {
+                    socket.connect();
+                }, 2000);
+            });
+            
+            socket.on('message_received', function(message) {
+                debug('Mensagem recebida via socket:', message);
+                // Adicionar à lista local se não existir
+                if (!currentMessages.find(m => m.id === message.id)) {
+                    currentMessages.push(message);
+                    renderMessage(message);
+                }
+            });
+            
+            socket.on('search_results', function(data) {
+                debug('Resultados de busca:', data);
+                addSearchResults(data);
+            });
+            
+            socket.on('status', function(data) {
+                debug('Status:', data);
+                showStatus(data.message);
+            });
+            
+            socket.on('response_start', function() {
+                debug('Resposta iniciada');
+                addTypingIndicator();
+            });
+            
+            socket.on('response_chunk', function(data) {
+                debug('Chunk recebido:', data.chunk);
+                updateStreamingMessage(data.chunk, data.message_id);
+            });
+            
+            socket.on('response_end', function(data) {
+                debug('Resposta finalizada:', data);
+                removeTypingIndicator();
+                finalizeStreamingMessage(data.message);
+                
+                // Adicionar mensagem à lista local
+                if (!currentMessages.find(m => m.id === data.message.id)) {
+                    currentMessages.push(data.message);
+                }
+                
+                isGenerating = false;
+                updateSendButton();
+            });
+            
+            socket.on('session_title_updated', function(data) {
+                debug('Título atualizado:', data);
+                // Atualizar título na sessão local
+                const sessionIndex = sessions.findIndex(s => s.id === data.session_id);
+                if (sessionIndex !== -1) {
+                    sessions[sessionIndex].title = data.title;
+                }
+                loadSessions();
+                if (currentSessionId === data.session_id) {
+                    document.getElementById('sessionTitle').textContent = data.title;
+                }
+            });
+            
+            socket.on('error', function(data) {
+                debug('Erro:', data);
+                showError('Erro: ' + data.message);
+                isGenerating = false;
+                updateSendButton();
+            });
+        }
+        
+        // Carregar usuário
+        async function loadUser() {
+            try {
+                const response = await fetch('/api/auth/me');
+                if (response.ok) {
+                    currentUser = await response.json();
+                    document.getElementById('currentUser').textContent = currentUser.username;
+                    
+                    if (currentUser.role === 'admin') {
+                        document.getElementById('adminBtn').classList.remove('hidden');
+                    }
+                } else {
+                    // Se não autenticado, redirecionar para login
+                    window.location.href = '/login';
+                }
+            } catch (error) {
+                debug('Erro ao carregar usuário:', error);
+                window.location.href = '/login';
+            }
+        }
+        
+        // Carregar sessões
+        async function loadSessions() {
+            debug('Carregando sessões...');
+            
+            try {
+                const response = await fetch('/api/sessions', {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json'
+                    },
+                    credentials: 'same-origin'
+                });
+                
+                debug('Response status:', response.status);
+                
+                if (response.status === 401) {
+                    // Não autenticado, redirecionar para login
+                    window.location.href = '/login';
+                    return;
+                }
+                
+                if (response.ok) {
+                    sessions = await response.json();
+                    debug('Sessões carregadas:', sessions);
+                    renderSessions(sessions);
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+            } catch (error) {
+                debug('Erro ao carregar sessões:', error);
+                showError(`Erro de conexão ao carregar sessões: ${error.message}`);
+            }
+        }
+        
+        // Renderizar sessões
+        function renderSessions(sessionsList) {
+            const container = document.getElementById('sessionsList');
+            container.innerHTML = '';
+            
+            if (sessionsList.length === 0) {
+                container.innerHTML = '<div class="p-3 text-gray-400 text-sm text-center">Nenhuma conversa ainda</div>';
+                return;
+            }
+            
+            sessionsList.forEach(session => {
+                const div = document.createElement('div');
+                div.className = `p-3 hover:bg-gray-800 rounded cursor-pointer transition-colors ${
+                    session.id === currentSessionId ? 'bg-gray-800 border-l-2 border-blue-500' : ''
+                }`;
+                div.onclick = () => selectSession(session.id);
+                
+                div.innerHTML = `
+                    <div class="font-medium text-sm truncate">${escapeHtml(session.title)}</div>
+                    <div class="text-xs text-gray-400 mt-1">${formatDate(session.updated_at)}</div>
+                `;
+                
+                container.appendChild(div);
+            });
+        }
+        
+        // Criar nova sessão
+        async function createNewSession() {
+            debug('Criando nova sessão...');
+            
+            try {
+                const response = await fetch('/api/sessions', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({ title: 'Nova Conversa' })
+                });
+                
+                debug('Response status:', response.status);
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`HTTP ${response.status}: ${errorText}`);
+                }
+                
+                const session = await response.json();
+                debug('Nova sessão criada:', session);
+                
+                // Verificar se a sessão foi criada corretamente
+                if (!session || !session.id) {
+                    throw new Error('Sessão criada mas dados inválidos');
+                }
+                
+                // Adicionar ao início da lista local
+                sessions.unshift(session);
+                debug('Sessions atualizadas:', sessions);
+                
+                // Atualizar UI
+                renderSessions(sessions);
+                
+                // Selecionar a nova sessão
+                await selectSession(session.id);
+                
+            } catch (error) {
+                debug('Erro ao criar sessão:', error);
+                showError(`Erro ao criar nova conversa: ${error.message}`);
+            }
+        }
+        
+        // Selecionar sessão
+        async function selectSession(sessionId) {
+            debug('Selecionando sessão:', sessionId);
+            
+            if (!sessionId) {
+                debug('Session ID inválido');
+                return;
+            }
+            
+            // Sair da sessão anterior
+            if (currentSessionId && socket) {
+                socket.emit('leave_session', { session_id: currentSessionId });
+            }
+            
+            currentSessionId = sessionId;
+            currentMessages = []; // Limpar mensagens locais
+            
+            // Entrar na nova sessão
+            if (socket) {
+                socket.emit('join_session', { session_id: sessionId });
+            }
+            
+            // Mostrar área de input
+            document.getElementById('inputArea').classList.remove('hidden');
+            document.getElementById('headerActions').classList.remove('hidden');
+            
+            const welcomeMsg = document.getElementById('welcomeMessage');
+            if (welcomeMsg) {
+                welcomeMsg.style.display = 'none';
+            }
+            
+            // Limpar área de mensagens
+            const messagesDiv = document.getElementById('messages');
+            messagesDiv.innerHTML = '';
+            
+            // Buscar sessão específica
+            const session = sessions.find(s => s.id === sessionId);
+            if (session) {
+                document.getElementById('sessionTitle').textContent = session.title;
+            }
+            
+            try {
+                // Carregar mensagens da sessão
+                debug('Fazendo request para:', `/api/sessions/${sessionId}`);
+                const response = await fetch(`/api/sessions/${sessionId}`, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json'
+                    },
+                    credentials: 'same-origin'
+                });
+                
+                debug('Response status:', response.status);
+                
+                if (response.status === 401) {
+                    // Não autenticado, redirecionar para login
+                    window.location.href = '/login';
+                    return;
+                }
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                debug('Dados da sessão carregados:', data);
+                
+                // Verificar se os dados são válidos
+                if (!data || !data.session) {
+                    throw new Error('Dados da sessão inválidos');
+                }
+                
+                // Atualizar título
+                document.getElementById('sessionTitle').textContent = data.session.title;
+                
+                // Armazenar mensagens localmente
+                currentMessages = data.messages || [];
+                debug('Mensagens carregadas:', currentMessages.length);
+                
+                // Renderizar mensagens existentes
+                if (currentMessages.length === 0) {
+                    addSystemMessage('💡 Dica: Use /search ou /buscar para forçar uma busca na web');
+                } else {
+                    currentMessages.forEach(message => {
+                        renderMessage(message);
+                        if (message.search_results && message.search_results.length > 0) {
+                            addSearchResults({ results: message.search_results });
+                        }
+                    });
+                }
+                
+                scrollToBottom();
+                
+            } catch (error) {
+                debug('Erro ao carregar sessão:', error);
+                showError(`Erro ao carregar conversa: ${error.message}`);
+                
+                // Em caso de erro, ainda mostrar dica se for sessão nova
+                addSystemMessage('💡 Dica: Use /search ou /buscar para forçar uma busca na web');
+            }
+            
+            // Atualizar visual da sidebar
+            renderSessions(sessions);
+        }
+        
+        // Enviar mensagem
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            
+            if (!message || !currentSessionId || isGenerating) return;
+            
+            debug('Enviando mensagem:', message);
+            
+            // Verificar se é comando de busca forçada
+            let finalMessage = message;
+            let forceSearch = false;
+            
+            if (message.startsWith('/search ') || message.startsWith('/buscar ')) {
+                forceSearch = true;
+                finalMessage = message.replace(/^\/(search|buscar)\s+/, '');
+                addSystemMessage('🔍 Modo de busca ativado');
+            }
+            
+            // Criar mensagem do usuário
+            const userMessage = {
+                id: 'temp-' + Date.now(),
+                role: 'user',
+                content: finalMessage,
+                timestamp: new Date().toISOString(),
+                session_id: currentSessionId
+            };
+            
+            // Adicionar à lista local e renderizar
+            currentMessages.push(userMessage);
+            renderMessage(userMessage);
+            
+            // Limpar input
+            input.value = '';
+            isGenerating = true;
+            updateSendButton();
+            
+            // Enviar via socket
+            if (socket && socket.connected) {
+                socket.emit('send_message', {
+                    session_id: currentSessionId,
+                    message: finalMessage,
+                    force_search: forceSearch
+                });
+            } else {
+                showError('Conexão perdida. Tentando reconectar...');
+                socket.connect();
+                isGenerating = false;
+                updateSendButton();
+            }
+        }
+        
+        // Renderizar uma mensagem específica
+        function renderMessage(message) {
+            debug('Renderizando mensagem:', message);
+            
+            const messagesDiv = document.getElementById('messages');
+            
+            // Verificar se a mensagem já existe
+            if (document.getElementById(`message-${message.id}`)) {
+                debug('Mensagem já existe, pulando renderização');
+                return;
+            }
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `mb-4 ${message.role === 'user' ? 'text-right' : 'text-left'}`;
+            messageDiv.id = `message-${message.id}`;
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.className = `inline-block max-w-[80%] ${
+                message.role === 'user' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-white border border-gray-200'
+            } rounded-lg px-4 py-2`;
+            
+            if (message.role === 'user') {
+                contentDiv.textContent = message.content;
+            } else {
+                // Processar markdown e citações para mensagens do assistente
+                let processedContent = marked.parse(message.content || '');
+                processedContent = processCitations(processedContent);
+                contentDiv.innerHTML = `<div class="markdown-content">${processedContent}</div>`;
+            }
+            
+            messageDiv.appendChild(contentDiv);
+            
+            // Timestamp
+            const timeDiv = document.createElement('div');
+            timeDiv.className = 'text-xs text-gray-500 mt-1';
+            timeDiv.textContent = formatTime(message.timestamp);
+            messageDiv.appendChild(timeDiv);
+            
+            messagesDiv.appendChild(messageDiv);
+            scrollToBottom();
+        }
+        
+        // Adicionar mensagem do sistema
+        function addSystemMessage(text) {
+            const messagesDiv = document.getElementById('messages');
+            const systemDiv = document.createElement('div');
+            systemDiv.className = 'mb-2 text-center';
+            systemDiv.innerHTML = `<span class="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">${escapeHtml(text)}</span>`;
+            messagesDiv.appendChild(systemDiv);
+            scrollToBottom();
+        }
+        
+        // Mostrar status
+        function showStatus(message) {
+            // Remover status anterior
+            const existingStatus = document.getElementById('status-message');
+            if (existingStatus) existingStatus.remove();
+            
+            const messagesDiv = document.getElementById('messages');
+            const statusDiv = document.createElement('div');
+            statusDiv.id = 'status-message';
+            statusDiv.className = 'mb-2 text-center';
+            statusDiv.innerHTML = `<span class="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded flex items-center justify-center gap-2">
+                <i class="fas fa-spinner fa-spin"></i>${escapeHtml(message)}
+            </span>`;
+            messagesDiv.appendChild(statusDiv);
+            scrollToBottom();
+        }
+        
+        // Mostrar erro
+        function showError(message) {
+            const messagesDiv = document.getElementById('messages');
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'mb-2 text-center';
+            errorDiv.innerHTML = `<span class="text-xs text-red-600 bg-red-50 px-2 py-1 rounded">${escapeHtml(message)}</span>`;
+            messagesDiv.appendChild(errorDiv);
+            scrollToBottom();
+        }
+        
+        // Adicionar resultados de busca
+        function addSearchResults(data) {
+            // Remover status se existir
+            const statusMsg = document.getElementById('status-message');
+            if (statusMsg) statusMsg.remove();
+            
+            const messagesDiv = document.getElementById('messages');
+            const resultsDiv = document.createElement('div');
+            resultsDiv.className = 'mb-4';
+            resultsDiv.id = 'search-results-' + Date.now();
+            
+            resultsDiv.innerHTML = `
+                <div class="text-sm text-gray-600 mb-3 flex items-center gap-2">
+                    <i class="fas fa-search"></i>
+                    <span>Fontes consultadas:</span>
+                </div>
+            `;
+            
+            const container = document.createElement('div');
+            container.className = 'space-y-3';
+            
+            data.results.forEach((result, index) => {
+                const resultDiv = document.createElement('div');
+                resultDiv.className = 'bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow';
+                
+                // Extrair domínio da URL
+                let domain = 'Desconhecido';
+                try {
+                    domain = new URL(result.url).hostname.replace('www.', '');
+                } catch (e) {
+                    debug('Erro ao extrair domínio:', e);
+                }
+                
+                resultDiv.innerHTML = `
+                    <div class="flex items-start gap-3">
+                        <div class="flex-shrink-0 w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                            <span class="text-sm font-semibold text-gray-600">[${index + 1}]</span>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <a href="${result.url}" target="_blank" rel="noopener noreferrer" class="group">
+                                <h4 class="font-medium text-blue-600 group-hover:text-blue-700 line-clamp-1 mb-1">
+                                    ${escapeHtml(result.title)}
+                                </h4>
+                                <p class="text-sm text-gray-600 line-clamp-2 mb-2">${escapeHtml(result.snippet)}</p>
+                                <div class="flex items-center gap-2 text-xs text-gray-500">
+                                    <i class="fas fa-globe"></i>
+                                    <span>${escapeHtml(domain)}</span>
+                                    <i class="fas fa-external-link-alt ml-auto"></i>
+                                </div>
+                            </a>
+                        </div>
+                    </div>
+                `;
+                
+                container.appendChild(resultDiv);
+            });
+            
+            resultsDiv.appendChild(container);
+            messagesDiv.appendChild(resultsDiv);
+            
+            // Armazenar referências para citações
+            window.lastSearchResults = data.results;
+            
+            scrollToBottom();
+        }
+        
+        // Indicador de digitação
+        function addTypingIndicator() {
+            // Remover indicador existente
+            removeTypingIndicator();
+            
+            const messagesDiv = document.getElementById('messages');
+            const typingDiv = document.createElement('div');
+            typingDiv.id = 'typing-indicator';
+            typingDiv.className = 'mb-4';
+            typingDiv.innerHTML = `
+                <div class="inline-block bg-white border border-gray-200 rounded-lg px-4 py-2">
+                    <span class="typing-dot inline-block w-2 h-2 bg-gray-400 rounded-full"></span>
+                    <span class="typing-dot inline-block w-2 h-2 bg-gray-400 rounded-full mx-1"></span>
+                    <span class="typing-dot inline-block w-2 h-2 bg-gray-400 rounded-full"></span>
+                </div>
+            `;
+            messagesDiv.appendChild(typingDiv);
+            scrollToBottom();
+        }
+        
+        function removeTypingIndicator() {
+            const indicator = document.getElementById('typing-indicator');
+            if (indicator) indicator.remove();
+        }
+        
+        // Streaming
+        let streamingDiv = null;
+        let streamingContent = '';
+        
+        function updateStreamingMessage(chunk, messageId) {
+            if (!streamingDiv) {
+                removeTypingIndicator();
+                
+                const messagesDiv = document.getElementById('messages');
+                streamingDiv = document.createElement('div');
+                streamingDiv.className = 'mb-4 text-left';
+                streamingDiv.id = `message-${messageId}`;
+                
+                const contentDiv = document.createElement('div');
+                contentDiv.className = 'inline-block max-w-[80%] bg-white border border-gray-200 rounded-lg px-4 py-2';
+                contentDiv.innerHTML = '<div class="markdown-content streaming-content"></div>';
+                
+                streamingDiv.appendChild(contentDiv);
+                messagesDiv.appendChild(streamingDiv);
+                streamingContent = '';
+            }
+            
+            streamingContent += chunk;
+            const contentElement = streamingDiv.querySelector('.streaming-content');
+            if (contentElement) {
+                let processedContent = marked.parse(streamingContent);
+                processedContent = processCitations(processedContent);
+                contentElement.innerHTML = processedContent;
+            }
+            
+            scrollToBottom();
+        }
+        
+        function finalizeStreamingMessage(message) {
+            if (streamingDiv) {
+                const timeDiv = document.createElement('div');
+                timeDiv.className = 'text-xs text-gray-500 mt-1';
+                timeDiv.textContent = formatTime(message.timestamp);
+                streamingDiv.appendChild(timeDiv);
+                
+                streamingDiv = null;
+                streamingContent = '';
+            }
+        }
+        
+        // Deletar sessão
+        async function deleteCurrentSession() {
+            if (!currentSessionId || !confirm('Tem certeza que deseja excluir esta conversa?')) return;
+            
+            try {
+                const response = await fetch(`/api/sessions/${currentSessionId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    // Remover da lista local
+                    sessions = sessions.filter(s => s.id !== currentSessionId);
+                    
+                    currentSessionId = null;
+                    currentMessages = [];
+                    
+                    renderSessions(sessions);
+                    
+                    // Limpar interface
+                    document.getElementById('messages').innerHTML = `
+                        <div id="welcomeMessage" class="text-center text-gray-500 mt-20">
+                            <i class="fas fa-comments text-6xl mb-4 text-gray-300"></i>
+                            <p>Selecione uma conversa ou crie uma nova para começar</p>
+                        </div>
+                    `;
+                    document.getElementById('sessionTitle').textContent = 'Selecione ou crie uma conversa';
+                    document.getElementById('inputArea').classList.add('hidden');
+                    document.getElementById('headerActions').classList.add('hidden');
+                } else {
+                    showError('Erro ao deletar conversa');
+                }
+            } catch (error) {
+                debug('Erro ao deletar sessão:', error);
+                showError('Erro de conexão ao deletar conversa');
+            }
+        }
+        
+        // Toggle menu de exportação
+        function toggleExportMenu() {
+            const menu = document.getElementById('exportMenu');
+            menu.classList.toggle('hidden');
+            
+            // Fechar menu ao clicar fora
+            if (!menu.classList.contains('hidden')) {
+                setTimeout(() => {
+                    document.addEventListener('click', closeExportMenu);
+                }, 100);
+            }
+        }
+        
+        function closeExportMenu(e) {
+            const menu = document.getElementById('exportMenu');
+            if (!menu.contains(e.target) && !e.target.closest('button[onclick="toggleExportMenu()"]')) {
+                menu.classList.add('hidden');
+                document.removeEventListener('click', closeExportMenu);
+            }
+        }
+        
+        // Exportar sessão
+        async function exportSession(format) {
+            if (!currentSessionId) return;
+            
+            try {
+                const response = await fetch(`/api/sessions/${currentSessionId}/export/${format}`);
+                
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    
+                    // Obter nome do arquivo do header Content-Disposition
+                    const contentDisposition = response.headers.get('Content-Disposition');
+                    const fileNameMatch = contentDisposition && contentDisposition.match(/filename="(.+)"/);
+                    const fileName = fileNameMatch ? fileNameMatch[1] : `conversa.${format}`;
+                    
+                    a.download = fileName;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                    
+                    // Fechar menu
+                    document.getElementById('exportMenu').classList.add('hidden');
+                } else {
+                    const error = await response.json();
+                    showError(error.error || 'Erro ao exportar conversa');
+                }
+            } catch (error) {
+                debug('Erro ao exportar:', error);
+                showError('Erro ao exportar conversa');
+            }
+        }
+        
+        // Processar citações no markdown
+        function processCitations(content) {
+            if (!window.lastSearchResults || window.lastSearchResults.length === 0) {
+                return content;
+            }
+            
+            // Substituir [1], [2], etc. por links clicáveis
+            return content.replace(/\[(\d+)\]/g, (match, num) => {
+                const index = parseInt(num) - 1;
+                if (window.lastSearchResults[index]) {
+                    const result = window.lastSearchResults[index];
+                    return `<a href="${result.url}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:text-blue-700 font-medium" title="${escapeHtml(result.title)}">[${num}]</a>`;
+                }
+                return match;
+            });
+        }
+        
+        // Logout
+        async function logout() {
+            try {
+                await fetch('/api/auth/logout', { method: 'POST' });
+                window.location.href = '/login';
+            } catch (error) {
+                debug('Erro ao fazer logout:', error);
+                window.location.href = '/login';
+            }
+        }
+        
+        // Helpers
+        function updateSendButton() {
+            const btn = document.getElementById('sendBtn');
+            btn.disabled = isGenerating;
+            btn.innerHTML = isGenerating 
+                ? '<i class="fas fa-spinner fa-spin"></i>' 
+                : '<i class="fas fa-paper-plane"></i>';
+        }
+        
+        function scrollToBottom() {
+            const container = document.getElementById('messagesContainer');
+            setTimeout(() => {
+                container.scrollTop = container.scrollHeight;
+            }, 50);
+        }
+        
+        function formatDate(dateString) {
+            if (!dateString) return 'Data inválida';
+            
+            try {
+                const date = new Date(dateString);
+                const now = new Date();
+                const diff = Math.floor((now - date) / (1000 * 60 * 60 * 24));
+                
+                if (diff === 0) return 'Hoje';
+                if (diff === 1) return 'Ontem';
+                if (diff < 7) return `${diff} dias atrás`;
+                return date.toLocaleDateString('pt-BR');
+            } catch (e) {
+                return 'Data inválida';
+            }
+        }
+        
+        function formatTime(dateString) {
+            if (!dateString) return '';
+            
+            try {
+                return new Date(dateString).toLocaleTimeString('pt-BR', {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            } catch (e) {
+                return '';
+            }
+        }
+        
+        function escapeHtml(text) {
+            if (!text) return '';
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        // Prevenir perda de dados na navegação
+        window.addEventListener('beforeunload', function(e) {
+            if (isGenerating) {
+                e.preventDefault();
+                e.returnValue = 'Uma resposta está sendo gerada. Tem certeza que deseja sair?';
+            }
+        });
+        
+        // Reconectar socket automaticamente se desconectar
+        setInterval(function() {
+            if (socket && !socket.connected) {
+                debug('Tentando reconectar socket...');
+                socket.connect();
+            }
+        }, 5000);
+    </script>
+</body>
+</html>

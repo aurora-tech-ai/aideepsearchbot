@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel Admin - AI Search Bot</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body class="bg-gray-100">
+    <!-- Header -->
+    <nav class="bg-white shadow">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <i class="fas fa-robot text-blue-600 text-2xl mr-3"></i>
+                    <h1 class="text-xl font-semibold">Painel Administrativo</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <a href="/" class="text-gray-700 hover:text-gray-900">
+                        <i class="fas fa-comments mr-1"></i> Chat
+                    </a>
+                    <button onclick="logout()" class="text-red-600 hover:text-red-700">
+                        <i class="fas fa-sign-out-alt mr-1"></i> Sair
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center">
+                    <div class="p-3 bg-blue-100 rounded-lg">
+                        <i class="fas fa-users text-blue-600 text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-gray-500 text-sm">Total de Usuários</p>
+                        <p class="text-2xl font-semibold text-gray-800" id="users-count">-</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center">
+                    <div class="p-3 bg-green-100 rounded-lg">
+                        <i class="fas fa-comments text-green-600 text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-gray-500 text-sm">Total de Sessões</p>
+                        <p class="text-2xl font-semibold text-gray-800" id="sessions-count">-</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center">
+                    <div class="p-3 bg-purple-100 rounded-lg">
+                        <i class="fas fa-envelope text-purple-600 text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-gray-500 text-sm">Total de Mensagens</p>
+                        <p class="text-2xl font-semibold text-gray-800" id="messages-count">-</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center">
+                    <div class="p-3 bg-yellow-100 rounded-lg">
+                        <i class="fas fa-chart-line text-yellow-600 text-2xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-gray-500 text-sm">Média por Usuário</p>
+                        <p class="text-2xl font-semibold text-gray-800" id="avg-sessions">-</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="bg-white rounded-lg shadow">
+            <div class="border-b border-gray-200">
+                <nav class="flex -mb-px">
+                    <button 
+                        onclick="showTab('users')" 
+                        id="users-tab" 
+                        class="tab-button py-2 px-6 border-b-2 border-blue-500 text-blue-600 font-medium"
+                    >
+                        <i class="fas fa-users mr-2"></i>
+                        Usuários
+                    </button>
+                    <button 
+                        onclick="showTab('activity')" 
+                        id="activity-tab" 
+                        class="tab-button py-2 px-6 border-b-2 border-transparent text-gray-500 hover:text-gray-700"
+                    >
+                        <i class="fas fa-history mr-2"></i>
+                        Atividade Recente
+                    </button>
+                </nav>
+            </div>
+
+            <!-- Users Tab -->
+            <div id="users-content" class="p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-lg font-semibold text-gray-800">Gerenciar Usuários</h2>
+                    <button 
+                        onclick="showCreateUserModal()" 
+                        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2"
+                    >
+                        <i class="fas fa-plus"></i>
+                        Novo Usuário
+                    </button>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="min-w-full">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Usuário
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Email
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Role
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Status
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Criado em
+                                </th>
+                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Ações
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody id="users-table" class="bg-white divide-y divide-gray-200">
+                            <!-- Users will be loaded here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Activity Tab -->
+            <div id="activity-content" class="p-6 hidden">
+                <h2 class="text-lg font-semibold text-gray-800 mb-4">Atividade Recente</h2>
+                <div id="activity-list" class="space-y-3">
+                    <!-- Activity will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create/Edit User Modal -->
+    <div id="user-modal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4" id="modal-title">Criar Usuário</h3>
+            
+            <form id="user-form" onsubmit="saveUser(event)">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Usuário</label>
+                    <input 
+                        type="text" 
+                        id="modal-username" 
+                        required 
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                </div>
+                
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                    <input 
+                        type="email" 
+                        id="modal-email" 
+                        required 
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                </div>
+                
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Senha</label>
+                    <input 
+                        type="password" 
+                        id="modal-password" 
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                    <p class="mt-1 text-sm text-gray-500 hidden" id="password-help">
+                        Deixe em branco para manter a senha atual
+                    </p>
+                </div>
+                
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Role</label>
+                    <select 
+                        id="modal-role" 
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                        <option value="user">Usuário</option>
+                        <option value="admin">Administrador</option>
+                    </select>
+                </div>
+                
+                <div class="mb-6">
+                    <label class="flex items-center">
+                        <input 
+                            type="checkbox" 
+                            id="modal-active" 
+                            checked 
+                            class="mr-2"
+                        >
+                        <span class="text-sm text-gray-700">Ativo</span>
+                    </label>
+                </div>
+                
+                <div class="flex justify-end space-x-3">
+                    <button 
+                        type="button" 
+                        onclick="hideUserModal()" 
+                        class="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400"
+                    >
+                        Cancelar
+                    </button>
+                    <button 
+                        type="submit" 
+                        class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                    >
+                        Salvar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let currentUser = null;
+        let editingUsername = null;
+
+        // Inicialização
+        document.addEventListener('DOMContentLoaded', () => {
+            loadStats();
+            loadUsers();
+            getCurrentUser();
+        });
+
+        async function getCurrentUser() {
+            try {
+                const response = await fetch('/api/auth/me');
+                if (response.ok) {
+                    currentUser = await response.json();
+                }
+            } catch (error) {
+                console.error('Erro ao obter usuário atual:', error);
+            }
+        }
+
+        async function loadStats() {
+            try {
+                const response = await fetch('/api/admin/stats');
+                if (!response.ok) {
+                    throw new Error('Erro ao carregar estatísticas');
+                }
+                
+                const stats = await response.json();
+                
+                document.getElementById('users-count').textContent = stats.users_count || 0;
+                document.getElementById('sessions-count').textContent = stats.sessions_count || 0;
+                document.getElementById('messages-count').textContent = stats.messages_count || 0;
+                
+                const avgSessions = stats.users_count > 0 ? (stats.sessions_count / stats.users_count).toFixed(1) : '0';
+                document.getElementById('avg-sessions').textContent = avgSessions;
+                
+                // Carregar atividade recente
+                if (stats.recent_activity) {
+                    loadActivity(stats.recent_activity);
+                }
+            } catch (error) {
+                console.error('Erro ao carregar estatísticas:', error);
+            }
+        }
+
+        async function loadUsers() {
+            try {
+                const response = await fetch('/api/admin/users');
+                if (!response.ok) {
+                    throw new Error('Erro ao carregar usuários');
+                }
+                
+                const users = await response.json();
+                const tbody = document.getElementById('users-table');
+                tbody.innerHTML = '';
+                
+                if (users.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-4 text-center text-gray-500">Nenhum usuário encontrado</td></tr>';
+                    return;
+                }
+                
+                users.forEach(user => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm font-medium text-gray-900">${user.username}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-500">${user.email}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                user.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'
+                            }">
+                                ${user.role}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                user.active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                            }">
+                                ${user.active ? 'Ativo' : 'Inativo'}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            ${formatDate(user.created_at)}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <button onclick="editUser('${user.username}')" class="text-blue-600 hover:text-blue-900 mr-3">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            ${user.username !== currentUser?.username ? `
+                                <button onclick="deleteUser('${user.username}')" class="text-red-600 hover:text-red-900">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            ` : ''}
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (error) {
+                console.error('Erro ao carregar usuários:', error);
+                document.getElementById('users-table').innerHTML = '<tr><td colspan="6" class="px-6 py-4 text-center text-red-600">Erro ao carregar usuários</td></tr>';
+            }
+        }
+
+        function loadActivity(activities) {
+            const container = document.getElementById('activity-list');
+            container.innerHTML = '';
+            
+            if (!activities || activities.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-center">Nenhuma atividade recente</p>';
+                return;
+            }
+            
+            activities.forEach(activity => {
+                const div = document.createElement('div');
+                div.className = 'flex items-center justify-between p-3 bg-gray-50 rounded-lg';
+                div.innerHTML = `
+                    <div class="flex items-center">
+                        <i class="fas fa-comment text-gray-400 mr-3"></i>
+                        <div>
+                            <p class="text-sm font-medium text-gray-900">${activity.title || 'Sem título'}</p>
+                            <p class="text-xs text-gray-500">Usuário: ${activity.user || 'Desconhecido'}</p>
+                        </div>
+                    </div>
+                    <div class="text-xs text-gray-500">
+                        ${formatDateTime(activity.updated_at)}
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function showTab(tab) {
+            // Update buttons
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('border-blue-500', 'text-blue-600');
+                btn.classList.add('border-transparent', 'text-gray-500');
+            });
+            
+            const activeTab = document.getElementById(`${tab}-tab`);
+            activeTab.classList.remove('border-transparent', 'text-gray-500');
+            activeTab.classList.add('border-blue-500', 'text-blue-600');
+            
+            // Update content
+            document.getElementById('users-content').classList.toggle('hidden', tab !== 'users');
+            document.getElementById('activity-content').classList.toggle('hidden', tab !== 'activity');
+        }
+
+        function showCreateUserModal() {
+            editingUsername = null;
+            document.getElementById('modal-title').textContent = 'Criar Usuário';
+            document.getElementById('user-form').reset();
+            document.getElementById('modal-username').disabled = false;
+            document.getElementById('modal-password').required = true;
+            document.getElementById('password-help').classList.add('hidden');
+            document.getElementById('user-modal').classList.remove('hidden');
+        }
+
+        async function editUser(username) {
+            try {
+                const response = await fetch('/api/admin/users');
+                const users = await response.json();
+                const user = users.find(u => u.username === username);
+                
+                if (user) {
+                    editingUsername = username;
+                    document.getElementById('modal-title').textContent = 'Editar Usuário';
+                    document.getElementById('modal-username').value = user.username;
+                    document.getElementById('modal-username').disabled = true;
+                    document.getElementById('modal-email').value = user.email;
+                    document.getElementById('modal-password').value = '';
+                    document.getElementById('modal-password').required = false;
+                    document.getElementById('modal-role').value = user.role;
+                    document.getElementById('modal-active').checked = user.active;
+                    document.getElementById('password-help').classList.remove('hidden');
+                    document.getElementById('user-modal').classList.remove('hidden');
+                }
+            } catch (error) {
+                console.error('Erro ao carregar usuário:', error);
+                alert('Erro ao carregar dados do usuário');
+            }
+        }
+
+        function hideUserModal() {
+            document.getElementById('user-modal').classList.add('hidden');
+            document.getElementById('user-form').reset();
+        }
+
+        async function saveUser(event) {
+            event.preventDefault();
+            
+            const userData = {
+                username: document.getElementById('modal-username').value,
+                email: document.getElementById('modal-email').value,
+                password: document.getElementById('modal-password').value,
+                role: document.getElementById('modal-role').value,
+                active: document.getElementById('modal-active').checked
+            };
+            
+            try {
+                let response;
+                if (editingUsername) {
+                    // Update existing user
+                    const updateData = { ...userData };
+                    delete updateData.username;
+                    if (!updateData.password) delete updateData.password;
+                    
+                    response = await fetch(`/api/admin/users/${editingUsername}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(updateData)
+                    });
+                } else {
+                    // Create new user
+                    response = await fetch('/api/admin/users', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(userData)
+                    });
+                }
+                
+                if (response.ok) {
+                    hideUserModal();
+                    loadUsers();
+                    loadStats();
+                    alert(editingUsername ? 'Usuário atualizado com sucesso!' : 'Usuário criado com sucesso!');
+                } else {
+                    const error = await response.json();
+                    alert(error.error || 'Erro ao salvar usuário');
+                }
+            } catch (error) {
+                console.error('Erro ao salvar usuário:', error);
+                alert('Erro ao salvar usuário');
+            }
+        }
+
+        async function deleteUser(username) {
+            if (!confirm(`Tem certeza que deseja excluir o usuário ${username}?`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/admin/users/${username}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    loadUsers();
+                    loadStats();
+                    alert('Usuário excluído com sucesso!');
+                } else {
+                    const error = await response.json();
+                    alert(error.error || 'Erro ao excluir usuário');
+                }
+            } catch (error) {
+                console.error('Erro ao excluir usuário:', error);
+                alert('Erro ao excluir usuário');
+            }
+        }
+
+        async function logout() {
+            try {
+                await fetch('/api/auth/logout', { method: 'POST' });
+                window.location.href = '/login';
+            } catch (error) {
+                console.error('Erro ao fazer logout:', error);
+            }
+        }
+
+        // Utility functions
+        function formatDate(dateString) {
+            if (!dateString) return '-';
+            const date = new Date(dateString);
+            return date.toLocaleDateString('pt-BR');
+        }
+
+        function formatDateTime(dateString) {
+            if (!dateString) return '-';
+            const date = new Date(dateString);
+            return date.toLocaleString('pt-BR');
+        }
+    </script>
+</body>
+</html>

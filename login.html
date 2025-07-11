@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - AI Search Bot</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body class="bg-gray-100">
+    <div class="min-h-screen flex items-center justify-center">
+        <div class="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
+            <!-- Logo e Título -->
+            <div class="text-center mb-8">
+                <div class="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-full mb-4">
+                    <i class="fas fa-robot text-white text-2xl"></i>
+                </div>
+                <h1 class="text-2xl font-bold text-gray-800">AI Search Bot</h1>
+                <p class="text-gray-600 mt-2">Faça login para continuar</p>
+            </div>
+
+            <!-- Formulário -->
+            <form id="loginForm">
+                <div class="mb-4">
+                    <label for="username" class="block text-sm font-medium text-gray-700 mb-2">
+                        Usuário
+                    </label>
+                    <input 
+                        type="text" 
+                        id="username" 
+                        name="username"
+                        required
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Digite seu usuário"
+                    >
+                </div>
+
+                <div class="mb-6">
+                    <label for="password" class="block text-sm font-medium text-gray-700 mb-2">
+                        Senha
+                    </label>
+                    <input 
+                        type="password" 
+                        id="password" 
+                        name="password"
+                        required
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Digite sua senha"
+                    >
+                </div>
+
+                <div class="mb-6">
+                    <label class="flex items-center">
+                        <input 
+                            type="checkbox" 
+                            id="remember" 
+                            name="remember"
+                            class="mr-2"
+                        >
+                        <span class="text-sm text-gray-700">Lembrar-me</span>
+                    </label>
+                </div>
+
+                <button 
+                    type="submit" 
+                    id="submitBtn"
+                    class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200"
+                >
+                    Entrar
+                </button>
+            </form>
+
+            <!-- Mensagem de erro -->
+            <div id="errorMsg" class="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-md hidden">
+                <p class="text-sm"></p>
+            </div>
+
+
+        </div>
+    </div>
+
+    <script>
+        // Gerenciar o formulário de login
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            // Pegar valores do formulário
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const remember = document.getElementById('remember').checked;
+            
+            // Elementos da UI
+            const submitBtn = document.getElementById('submitBtn');
+            const errorMsg = document.getElementById('errorMsg');
+            const errorText = errorMsg.querySelector('p');
+            
+            // Desabilitar botão durante o request
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Entrando...';
+            
+            // Esconder mensagem de erro anterior
+            errorMsg.classList.add('hidden');
+            
+            try {
+                // Fazer request para o backend
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        username: username,
+                        password: password,
+                        remember: remember
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    // Login bem-sucedido
+                    submitBtn.innerHTML = '<i class="fas fa-check mr-2"></i>Sucesso!';
+                    
+                    // Verificar se é admin
+                    if (data.user.role === 'admin') {
+                        // Perguntar se quer ir para o painel admin
+                        setTimeout(() => {
+                            if (confirm('Você é um administrador. Deseja ir para o painel administrativo?')) {
+                                window.location.href = '/admin';
+                            } else {
+                                window.location.href = '/';
+                            }
+                        }, 500);
+                    } else {
+                        // Usuário comum vai direto para o chat
+                        setTimeout(() => {
+                            window.location.href = '/';
+                        }, 500);
+                    }
+                } else {
+                    // Erro no login
+                    errorText.textContent = data.error || 'Usuário ou senha incorretos';
+                    errorMsg.classList.remove('hidden');
+                    
+                    // Resetar botão
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = 'Entrar';
+                }
+            } catch (error) {
+                // Erro de conexão
+                console.error('Erro:', error);
+                errorText.textContent = 'Erro de conexão. Verifique se o servidor está rodando.';
+                errorMsg.classList.remove('hidden');
+                
+                // Resetar botão
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = 'Entrar';
+            }
+        });
+    </script>
+</body>
+</html>
